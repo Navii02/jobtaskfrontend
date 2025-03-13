@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import axios from "axios";
@@ -10,7 +11,7 @@ const ExcelParser = () => {
   const [RetrivedData, setRetrivedData] = useState([]);
   const [materialdata, setmaterialdata] = useState([]);
   const [headers, setHeaders] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // Loading state
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -24,14 +25,14 @@ const ExcelParser = () => {
     if (!file) return;
     setMaterialfileName(file.name);
 
-    setLoading(true);
+    setLoading(true); // Start loading
     const reader = new FileReader();
     reader.readAsBinaryString(file);
 
     reader.onload = (e) => {
       const binaryString = e.target.result;
       const workbook = XLSX.read(binaryString, { type: "binary" });
-      const sheetName = workbook.SheetNames[0];
+      const sheetName = workbook.SheetNames[0]; 
       const sheet = workbook.Sheets[sheetName];
 
       const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
@@ -46,9 +47,13 @@ const ExcelParser = () => {
       setHeaders(extractedHeaders);
       setmaterialdata(jsonData.slice(1));
 
-      setTimeout(() => setLoading(false), 1000);
+      setTimeout(() => setLoading(false), 1000); // Simulate loading delay
     };
   };
+
+  useEffect(() => {
+    console.log("Updated Material Data:", materialdata);
+  }, [materialdata]);
 
   const sendDataToBackend = async () => {
     if (!materialdata.length) {
@@ -58,9 +63,61 @@ const ExcelParser = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post("http://localhost:4000/uploadData", { materialdata });
+      const response = await axios.post("https://jobtaskbackend-veny.onrender.com/uploadData", { materialdata });
       if (response.status === 200) {
         alert("Data uploaded successfully!");
+      }
+    } catch (error) {
+      handleResponseError(error);
+    }
+    setLoading(false);
+  };
+
+
+  const processFile = (file) => {
+    setLoading(true);
+    const reader = new FileReader();
+    reader.readAsBinaryString(file);
+
+    reader.onload = (e) => {
+      const data = e.target.result;
+      const workbook = XLSX.read(data, { type: "binary" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      if (jsonData.length < 2) {
+        setAlertMessage("Invalid file format.");
+        setLoading(false);
+        return;
+      }
+
+      const headerSizes = jsonData[0].slice(1);
+      const result = jsonData.slice(1).flatMap((row) => {
+        const branchSize = row[0];
+        return headerSizes.map((header, index) => ({
+          branchSize: branchSize,
+          headerSize: header,
+          Type: row[index + 1],
+        }));
+      });
+
+      setParsedData(result);
+      setLoading(false);
+    };
+  };
+
+  const handleSaveData = async () => {
+    if (!parsedData) {
+      setAlertMessage("No data to save. Please upload and process a file first.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await axios.post("https://jobtaskbackend-veny.onrender.com/saveData", parsedData);
+      if (response.status === 200) {
+        alert("Branch Details Added successfully");
       }
     } catch (error) {
       handleResponseError(error);
@@ -71,7 +128,7 @@ const ExcelParser = () => {
   const handleShowData = async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://localhost:4000/combineData");
+      const response = await axios.get("https://jobtaskbackend-veny.onrender.com/combineData");
       const sortedData = sortDataBySize(response.data.matchedData);
       setRetrivedData(sortedData);
     } catch (error) {
@@ -95,8 +152,6 @@ const ExcelParser = () => {
       alert("Failed to connect to the server. Please try again later.");
     }
   };
-
-  // Function to sort data based on Size1 (Headersize) within each Item Type
   const sortDataBySize = (data) => {
     const groupedData = data.reduce((acc, item) => {
       const type = item.ITEM_TYPE || "Unknown";
@@ -124,7 +179,7 @@ const ExcelParser = () => {
               <h4 className="mb-3 text-center">Branch Details</h4>
               <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} />
               {fileName && <p className="text-success mt-2">Uploaded: {fileName}</p>}
-              <button className="btn btn-primary mt-3" onClick={sendDataToBackend} disabled={loading}>
+              <button className="btn btn-primary mt-3" onClick={handleSaveData} disabled={loading}>
                 {loading ? "Saving..." : "Save Branch Data"}
               </button>
             </div>
