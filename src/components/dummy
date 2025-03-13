@@ -1,0 +1,92 @@
+import React, { useState } from "react";
+import * as XLSX from "xlsx";
+import axios from "axios";
+
+const ExcelParser = () => {
+  const [fileName, setFileName] = useState("");
+  const [parsedData, setParsedData] = useState(null);
+  const [alertMessage, setAlertMessage] = useState("");
+  
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    setFileName(file.name);
+    processFile(file);
+  };
+
+  const processFile = (file) => {
+    const reader = new FileReader();
+    reader.readAsBinaryString(file);
+
+    reader.onload = (e) => {
+      const data = e.target.result;
+      const workbook = XLSX.read(data, { type: "binary" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      
+      if (jsonData.length < 2) {
+        setAlertMessage("Invalid file format.");
+        return;
+      }
+
+      const headerSizes = jsonData[0].slice(1);
+      const result = jsonData.slice(1).flatMap((row) => {
+        const branchSize = row[0];
+        return headerSizes.map((header, index) => ({
+          branchSize: branchSize,
+          headerSize: header,
+          Type: row[index + 1]
+        }));
+      });
+      
+      setParsedData(result);
+      //setAlertMessage("File processed successfully.");
+    };
+  };
+
+  const handleSaveData = () => {
+    if (!parsedData) {
+      setAlertMessage("No data to save. Please upload and process a file first.");
+      return;
+    }
+
+    axios
+      .post("http://localhost:4000/saveData", parsedData)
+      .then((response) => setAlertMessage("Data saved successfully!"))
+      .catch((error) => setAlertMessage("Error saving data."));
+  };
+
+  return (
+    <>
+    <div>
+    <div className="container d-flex flex-column align-items-center p-4 bg-light shadow rounded" >
+      <h4 className="mb-3">Branch Details</h4>
+      <div className="mb-3 text-center">
+        <label htmlFor="fileUpload">
+          <input
+            id="fileUpload"
+            className="d-none form-control"
+            type="file"
+            accept=".xlsx, .xls"
+            onChange={handleFileUpload}
+          />
+          <img
+            src="https://cdn.pixabay.com/photo/2016/01/03/00/43/upload-1118929_1280.png"
+            alt="Upload Icon"
+            className="w-25"
+            style={{height:"75px",width:"350px"}}
+          />
+          <h3 className="text-center">Upload File</h3>
+        </label>
+      </div>
+      {fileName && <p className="text-success mt-2">Uploaded: {fileName}</p>}
+      <button className="btn btn-primary mt-3" onClick={handleSaveData}>Save Data</button>
+      {alertMessage && <p className="mt-3 text-info">{alertMessage}</p>}
+    </div>
+    </div>
+    </>
+  );
+};
+
+export default ExcelParser;
