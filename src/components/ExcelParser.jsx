@@ -78,34 +78,42 @@ const ExcelParser = () => {
     setLoading(true);
     const reader = new FileReader();
     reader.readAsBinaryString(file);
-
+  
     reader.onload = (e) => {
       const data = e.target.result;
       const workbook = XLSX.read(data, { type: "binary" });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
+  
       if (jsonData.length < 2) {
         setAlertMessage("Invalid file format.");
         setLoading(false);
         return;
       }
-
+  
       const headerSizes = jsonData[0].slice(1);
-      const result = jsonData.slice(1).flatMap((row) => {
-        const branchSize = row[0];
-        return headerSizes.map((header, index) => ({
-          branchSize: branchSize,
-          headerSize: header,
-          Type: row[index + 1],
-        }));
+      const result = [];
+      
+      headerSizes.forEach((header, colIndex) => {
+        jsonData.slice(1).forEach((row, rowIndex) => {
+          const branchSize = row[0];
+          const cellValue = row[colIndex + 1];
+         
+          result.push({
+            branchSize: branchSize,
+            headerSize: header,
+            Type: cellValue,
+          });
+        });
       });
-
+  console.log(result);
+  
       setParsedData(result);
       setLoading(false);
     };
   };
+  
 
   const handleSaveData = async () => {
     if (!parsedData) {
@@ -231,7 +239,7 @@ const ExcelParser = () => {
               <tbody>
                 {RetrivedData.map((item, index) => (
                   <tr key={item._id}>
-                    <td>{index + 1}</td>
+                    <td>{index + 1})</td>
                     <td>{item.Headersize}</td>
                     <td>{item.branchSize}</td>
                     <td>{item.ITEM_TYPE}</td>
