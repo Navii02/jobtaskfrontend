@@ -11,8 +11,12 @@ const ExcelParser = () => {
   const [RetrivedData, setRetrivedData] = useState([]);
   const [materialdata, setmaterialdata] = useState([]);
   const [headers, setHeaders] = useState([]);
-  const [loading, setLoading] = useState(false); // Loading state
-
+  const [loading, setLoading] = useState({
+    processing: false,
+    savingBranch: false,
+    savingMaterial: false,
+    fetchingData: false,
+  });
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -57,25 +61,27 @@ const ExcelParser = () => {
 
   const sendDataToBackend = async () => {
     if (!materialdata.length) {
-      setAlertMessage("No data to save. Please upload and process a file first.");
+      alert("No data to save. Please upload and process a file first.");
       return;
     }
 
-    setLoading(true);
+    setLoading((prev) => ({ ...prev, savingMaterial: true }));
     try {
       const response = await axios.post("https://jobtaskbackend-veny.onrender.com/uploadData", { materialdata });
       if (response.status === 200) {
         alert("Data uploaded successfully!");
+        MaterialfileName("")
       }
     } catch (error) {
       handleResponseError(error);
     }
-    setLoading(false);
+    setLoading((prev) => ({ ...prev, savingMaterial: false }));
   };
 
 
   const processFile = (file) => {
-    setLoading(true);
+    setLoading((prev) => ({ ...prev, processing: true }));
+
     const reader = new FileReader();
     reader.readAsBinaryString(file);
   
@@ -87,8 +93,8 @@ const ExcelParser = () => {
       const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
   
       if (jsonData.length < 2) {
-        setAlertMessage("Invalid file format.");
-        setLoading(false);
+        alert("Invalid file format.");
+        setLoading((prev) => ({ ...prev, processing: false }));
         return;
       }
   
@@ -107,34 +113,37 @@ const ExcelParser = () => {
           });
         });
       });
-  console.log(result);
+  //console.log(result);
   
       setParsedData(result);
-      setLoading(false);
+      setLoading((prev) => ({ ...prev, processing: false }));
     };
   };
   
 
   const handleSaveData = async () => {
     if (!parsedData) {
-      setAlertMessage("No data to save. Please upload and process a file first.");
+      alert("No data to save. Please upload and process a file first.");
       return;
     }
 
-    setLoading(true);
+    setLoading((prev) => ({ ...prev, savingBranch: true }));
     try {
       const response = await axios.post("https://jobtaskbackend-veny.onrender.com/saveData", parsedData);
-      if (response.status === 200) {
+      console.log(response);
+      
+      if (response.status === 201) {
         alert("Branch Details Added successfully");
+        setFileName("")
       }
     } catch (error) {
       handleResponseError(error);
     }
-    setLoading(false);
+    setLoading((prev) => ({ ...prev, savingBranch: false }));
   };
 
   const handleShowData = async () => {
-    setLoading(true);
+    setLoading((prev) => ({ ...prev, fetchingData: true }));
     try {
       const response = await axios.get("https://jobtaskbackend-veny.onrender.com/combineData");
       const sortedData = sortDataBySize(response.data.matchedData);
@@ -142,7 +151,7 @@ const ExcelParser = () => {
     } catch (error) {
       console.log("Error fetching data:", error);
     }
-    setLoading(false);
+    setLoading((prev) => ({ ...prev, fetchingData: false }));
   };
 
   const handleResponseError = (error) => {
@@ -185,10 +194,10 @@ const ExcelParser = () => {
           <div className="col-md-5 mt-5">
             <div className="container d-flex flex-column align-items-center p-4 bg-light shadow rounded">
               <h4 className="mb-3 text-center">Branch Details</h4>
-              <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} />
+              <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload}  disabled={loading.processing} />
               {fileName && <p className="text-success mt-2">Uploaded: {fileName}</p>}
-              <button className="btn btn-primary mt-3" onClick={handleSaveData} disabled={loading}>
-                {loading ? "Saving..." : "Save Branch Data"}
+              <button className="btn btn-primary mt-3" onClick={handleSaveData} disabled={loading.savingBranch}>
+              {loading.savingBranch ? "Saving Branch Data..." : "Save Branch Data"}
               </button>
             </div>
           </div>
@@ -197,19 +206,22 @@ const ExcelParser = () => {
           <div className="col-md-5 mt-5">
             <div className="container d-flex flex-column align-items-center p-4 bg-light shadow rounded">
               <h4 className="mb-3 text-center">Material Details</h4>
-              <input type="file" accept=".xlsx, .xls" onChange={handleFile} />
+              <input type="file" accept=".xlsx, .xls" onChange={handleFile}  disabled={loading.processing} />
               {MaterialfileName && <p className="text-success mt-2">Uploaded: {MaterialfileName}</p>}
-              <button className="btn btn-primary mt-3" onClick={sendDataToBackend} disabled={loading}>
-                {loading ? "Uploading..." : "Save Material Data"}
+              <button className="btn btn-primary mt-3" onClick={sendDataToBackend} disabled={loading.savingMaterial}>
+              {loading.savingMaterial ? "Uploading Material Data..." : "Upload Material Data"}
               </button>
             </div>
           </div>
+          {loading.processing && <p>Processing file...</p>}
+      {alertMessage && <p style={{ color: "red" }}>{alertMessage}</p>}
+
         </div>
 
         {/* Show Data Button */}
         <div className="container text-center d-flex justify-content-center align-items-center" style={{ height: "200px" }}>
-          <button className="btn btn-success m-5" onClick={handleShowData} disabled={loading}>
-            {loading ? "Loading..." : "Show Material Details"}
+          <button className="btn btn-success m-5" onClick={handleShowData} disabled={loading.fetchingData}>
+          {loading.fetchingData ? "Fetching Data..." : "Show Material Data"}
           </button>
         </div>
 
