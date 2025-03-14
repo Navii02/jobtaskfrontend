@@ -8,9 +8,12 @@ function App() {
   return (
     <>
       <Table />
+      <div className="mt-5">
+        
+        <ThreeDCanvas />
+      </div>
 
-      <ThreeDCanvas />
-      <ExcelParser/>
+      <ExcelParser />
       {/* <Excel/> */}
     </>
   );
